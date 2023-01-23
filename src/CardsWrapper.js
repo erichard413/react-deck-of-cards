@@ -4,11 +4,14 @@ import Card from './Card';
 import './CardsWrapper.css';
 
 
+
 const CardsWrapper = () => {
 const INITIAL_STATE = []
 const [cards, setCards] = useState(INITIAL_STATE);
 const deck = useRef();
-const gameOver = useRef(false);
+const cardInterval = useRef();
+const refCard = useRef(INITIAL_STATE);
+const gameState = useRef('off');
 
 
 useEffect(()=> {
@@ -20,35 +23,54 @@ useEffect(()=> {
 }, [])
 
 const handleClick = async() => {
-    let res = await axios.get(`https://deckofcardsapi.com/api/deck/${deck.current}/draw/?count=1`);
-    if (!res.data.cards[0]) {
-        gameOver.current = true;
-        setCards([...cards]);
-        return alert("No cards remaining!");
-    }
-    setCards(()=>{
-        let newCard = res.data.cards[0];
-        newCard['angle'] = Math.random() * 90 - 45;
-        newCard['randomY'] = Math.random() * 40 - 20;
-        newCard['randomX'] = Math.random() * 40 - 20;
-        let cardsCopy = [...cards, newCard];
-        return cardsCopy;
-    })
+    gameState.current = "on"
+    cardInterval.current = setInterval(() => {
+        const getCard = async () => {
+            const res = await axios.get(`https://deckofcardsapi.com/api/deck/${deck.current}/draw/?count=1`);
+            
+            if (!res.data.cards[0]) {
+            gameState.current = 'over';
+            setCards([...cards]);
+            stopDraw();
+            return alert("No cards remaining!");
+            }
+    
+            let newCard = res.data.cards[0];
+            newCard['angle'] = Math.random() * 90 - 45;
+            newCard['randomY'] = Math.random() * 40 - 20;
+            newCard['randomX'] = Math.random() * 40 - 20;
+            
+            setCards(refCard.current.push(newCard));
+        
+        }
+        getCard();
+    }, 1000);
+
+}
+
+const stopDraw = () => {
+    clearInterval(cardInterval.current);
+    setCards(INITIAL_STATE);
+    refCard.current = INITIAL_STATE;
+    gameState.current = 'over'
 }
 
 const reshuffleDeck = async ()=> {
-    let res = await axios.get(`https://deckofcardsapi.com/api/deck/${deck.current}/shuffle/`);
-    gameOver.current = false;
+    await axios.get(`https://deckofcardsapi.com/api/deck/${deck.current}/shuffle/`);
+    gameState.current = 'off';
     setCards(INITIAL_STATE);
 }
 
    return (
     <div>
         <div className="CardsWrapper-buttondiv">
-            {gameOver.current == true ? <button onClick={reshuffleDeck} className="getCard">Reshuffle</button> : <button onClick={handleClick} className="getCard">Gimme a card!</button> }
+            {gameState.current === 'over' && <button onClick={reshuffleDeck} className="getCard">Reshuffle</button>}
+            {gameState.current === 'on' && <button className="getCard" onClick={stopDraw}>Stop Drawing!</button>}
+            {gameState.current === 'off' && <button onClick={handleClick} className="getCard">Start Drawing!</button>}
+            
         </div>
         <div className="CardsWrapper-cards">
-            {cards.map(c=> <Card key={c.code} code={c.code} image={c.image} angle={c.angle} randomY={c.randomY} randomX={c.randomX} />)}
+            {refCard.current.map(c=> <Card key={c.code} code={c.code} image={c.image} angle={c.angle} randomY={c.randomY} randomX={c.randomX} />)}
         </div>
         
     </div>
